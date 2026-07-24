@@ -73,7 +73,9 @@ jobs:
           python-version: '3.11'
 
       - name: Validate run.py syntax
-        run: python -m py_compile scripts/run.py && echo "run.py: OK"
+        run: |
+          python -m py_compile scripts/run.py
+          echo "run.py: OK"
 
       - name: Test run.py --help
         run: python scripts/run.py --help
