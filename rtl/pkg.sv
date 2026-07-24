@@ -131,3 +131,5 @@ package soc_pkg;
   endfunction
 
 endpackage : soc_pkg
+/* verilator lint_on UNUSEDPARAM */
+/* verilator lint_on DECLFILENAME */
