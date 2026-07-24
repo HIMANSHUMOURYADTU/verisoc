@@ -8,6 +8,8 @@
 // Standard    : IEEE 1800-2017 (SystemVerilog)
 // =============================================================================
 
+/* verilator lint_off DECLFILENAME */
+/* verilator lint_off UNUSEDPARAM */
 package soc_pkg;
 
   // ---------------------------------------------------------------------------
@@ -129,3 +131,5 @@ package soc_pkg;
   endfunction
 
 endpackage : soc_pkg
+/* verilator lint_on UNUSEDPARAM */
+/* verilator lint_on DECLFILENAME */

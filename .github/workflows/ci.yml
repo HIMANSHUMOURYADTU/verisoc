@@ -30,6 +30,7 @@ jobs:
 
       - name: Lint RTL package
         run: |
+          mkdir -p logs
           verilator --lint-only --sv --Wall \
             rtl/pkg.sv 2>&1 | tee logs/lint_pkg.log
 
@@ -40,14 +41,14 @@ jobs:
                          rtl/apb_bridge.sv rtl/axi_lite_slave.sv; do
             echo "Linting: $sv_file"
             verilator --lint-only --sv --Wall \
-              -I rtl \
+              -Irtl \
               "$sv_file" 2>&1 | tee -a logs/lint_rtl.log
           done
 
       - name: Lint top module
         run: |
           verilator --lint-only --sv --Wall \
-            -I rtl \
+            -Irtl \
             rtl/top.sv 2>&1 | tee logs/lint_top.log
 
       - name: Upload lint logs
