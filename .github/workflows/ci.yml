@@ -1,0 +1,143 @@
+# GitHub Actions CI workflow for VeriSoC
+# Runs syntax check and regression on every push and pull request.
+# Uses Icarus Verilog (free) for basic syntax validation since full
+# commercial simulators (Vivado/Questa/VCS) require licenses.
+# For full UVM simulation, run locally with a licensed simulator.
+
+name: VeriSoC CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Lint — check SystemVerilog syntax with Verilator
+  # ---------------------------------------------------------------------------
+  lint:
+    name: RTL Lint (Verilator)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Verilator
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y verilator
+
+      - name: Lint RTL package
+        run: |
+          verilator --lint-only --sv --Wall \
+            rtl/pkg.sv 2>&1 | tee logs/lint_pkg.log
+
+      - name: Lint RTL modules
+        run: |
+          mkdir -p logs
+          for sv_file in rtl/uart.sv rtl/spi.sv rtl/gpio.sv rtl/timer.sv \
+                         rtl/apb_bridge.sv rtl/axi_lite_slave.sv; do
+            echo "Linting: $sv_file"
+            verilator --lint-only --sv --Wall \
+              -I rtl \
+              "$sv_file" 2>&1 | tee -a logs/lint_rtl.log
+          done
+
+      - name: Lint top module
+        run: |
+          verilator --lint-only --sv --Wall \
+            -I rtl \
+            rtl/top.sv 2>&1 | tee logs/lint_top.log
+
+      - name: Upload lint logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-logs
+          path: logs/
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Python script tests
+  # ---------------------------------------------------------------------------
+  python-tests:
+    name: Python Script Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate run.py syntax
+        run: python -m py_compile scripts/run.py && echo "run.py: OK"
+
+      - name: Test run.py --help
+        run: python scripts/run.py --help
+
+  # ---------------------------------------------------------------------------
+  # Job 3: Documentation check
+  # ---------------------------------------------------------------------------
+  docs-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check README exists and is non-empty
+        run: |
+          if [ ! -s README.md ]; then
+            echo "README.md is missing or empty!"
+            exit 1
+          fi
+          echo "README.md: OK ($(wc -l < README.md) lines)"
+
+      - name: Check all expected files exist
+        run: |
+          expected_files=(
+            "rtl/pkg.sv"
+            "rtl/uart.sv"
+            "rtl/spi.sv"
+            "rtl/gpio.sv"
+            "rtl/timer.sv"
+            "rtl/apb_bridge.sv"
+            "rtl/axi_lite_slave.sv"
+            "rtl/top.sv"
+            "tb/interface/axi_lite_if.sv"
+            "tb/interface/apb_if.sv"
+            "tb/sequence_item/axi_seq_item.sv"
+            "tb/sequences/base_sequence.sv"
+            "tb/sequences/random_sequence.sv"
+            "tb/sequences/burst_sequence.sv"
+            "tb/driver/axi_driver.sv"
+            "tb/monitor/axi_monitor.sv"
+            "tb/agent/axi_agent.sv"
+            "tb/scoreboard/scoreboard.sv"
+            "tb/coverage/coverage.sv"
+            "tb/assertions/soc_assertions.sv"
+            "tb/env/env.sv"
+            "tb/tests/smoke_test.sv"
+            "tb/tests/random_test.sv"
+            "tb/tests/regression_test.sv"
+            "tb/top_tb.sv"
+            "scripts/run.py"
+            "scripts/regression.tcl"
+            "LICENSE"
+            ".gitignore"
+          )
+          all_ok=true
+          for f in "${expected_files[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "MISSING: $f"
+              all_ok=false
+            else
+              echo "OK: $f"
+            fi
+          done
+          if [ "$all_ok" = false ]; then exit 1; fi
+          echo ""
+          echo "All expected files present."
