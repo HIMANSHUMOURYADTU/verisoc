@@ -30,6 +30,7 @@ jobs:
 
       - name: Lint RTL package
         run: |
+          mkdir -p logs
           verilator --lint-only --sv --Wall \
             rtl/pkg.sv 2>&1 | tee logs/lint_pkg.log
 
